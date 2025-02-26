@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>羽球比分器</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            height: 100vh;
+            background: #ffffff;
+            font-family: 'Helvetica Neue', system-ui, sans-serif;
+            overflow: hidden;
+        }
+
+        .container {
+            display: flex;
+            height: 100vh;
+            padding: 20px;
+            gap: 20px;
+        }
+
+        /* 选手区域 */
+        .player {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            border-radius: 20px;
+            padding: 25px;
+            background: #fff;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.08);
+            position: relative;
+        }
+
+        .player-red {
+            border: 3px solid #FF4757;
+        }
+
+        .player-blue {
+            border: 3px solid #2D98DA;
+        }
+
+        /* 比分显示 */
+        .score-display {
+            font-size: 120px;
+            width: 200px;
+            height: 200px;
+            margin-top: 0px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+        }
+
+        .player-red .score-display {
+            /* background: #FFF5F5;
+            border: 3px solid #FF4757; */
+            color: #FF4757;
+        }
+
+        .player-blue .score-display {
+            /* background: #F5F9FF;
+            border: 3px solid #2D98DA; */
+            color: #2D98DA;
+        }
+
+        .score-display:active {
+            transform: scale(0.95);
+        }
+
+        /* 减分按钮 */
+        .minus-btn {
+            position: absolute;
+            bottom: 30px;
+            width: 60px;
+            height: 60px;
+            border: none;
+            border-radius: 15px;
+            background: #F1F2F6;
+            font-size: 28px;
+            font-weight: 500;
+            color: #666;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: absolute;
+            bottom: 30px;
+        }
+
+        .player-red .minus-btn:active {
+            background: #FF4757;
+            color: white;
+        }
+
+        .player-blue .minus-btn:active {
+            background: #2D98DA;
+            color: white;
+        }
+
+        /* 胜局显示 */
+        .sets-display {
+            font-size: 48px;
+            position: absolute;
+            top: 30px;
+        }
+
+        .player-red .sets-display {
+            color: #FF4757;
+        }
+
+        .player-blue .sets-display {
+            color: #2D98DA;
+        }
+
+        /* 全局控制按钮 */
+        .global-controls {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            display: flex;
+            gap: 12px;
+        }
+
+        .control-btn {
+            padding: 12px 20px;
+            border: none;
+            border-radius: 10px;
+            background: #F1F2F6;
+            color: #2F3542;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+        }
+
+        .control-btn:active {
+            transform: scale(0.95);
+            box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+        }
+
+        /* 横屏提示 */
+        @media (orientation: portrait) {
+            body::before {
+                content: "请将手机旋转至横屏使用";
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: rgba(255, 255, 255, 0.96);
+                color: #2F3542;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                font-size: 24px;
+                z-index: 999;
+                padding: 20px;
+                text-align: center;
+                font-weight: 500;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- 全局控制 -->
+        <div class="global-controls">
+            <button class="control-btn" onclick="undoAction()">撤销</button>
+            <button class="control-btn" onclick="resetGame()">重置</button>
+        </div>
+
+        <!-- 红方区域 -->
+        <div class="player player-red">
+            <div class="sets-display" id="setsA">0</div>
+            <div class="score-display" id="scoreA" onclick="changeScore('A', 1)">0</div>
+            <button class="minus-btn" onclick="changeScore('A', -1)">-1</button>
+        </div>
+
+        <!-- 蓝方区域 -->
+        <div class="player player-blue">
+            <div class="sets-display" id="setsB">0</div>
+            <div class="score-display" id="scoreB" onclick="changeScore('B', 1)">0</div>
+            <button class="minus-btn" onclick="changeScore('B', -1)">-1</button>
+        </div>
+    </div>
+
+    <script>
+        let currentSet = 1;
+        let scoreA = 0;
+        let scoreB = 0;
+        let setsA = 0;
+        let setsB = 0;
+        let history = [];
+
+        function updateDisplay() {
+            document.getElementById('scoreA').textContent = scoreA;
+            document.getElementById('scoreB').textContent = scoreB;
+            document.getElementById('setsA').textContent = setsA;
+            document.getElementById('setsB').textContent = setsB;
+        }
+
+        function checkSetWinner() {
+            const maxScore = Math.max(scoreA, scoreB);
+            const minScore = Math.min(scoreA, scoreB);
+            const winner = scoreA > scoreB ? 'A' : 'B';
+
+            if ((maxScore >= 21 && (maxScore - minScore >= 2)) || maxScore === 30) {
+                winner === 'A' ? setsA++ : setsB++;
+                currentSet++;
+                
+                if (setsA >= 2 || setsB >= 2) {
+                    setTimeout(() => {
+                        alert(`${winner === 'A' ? '红方' : '蓝方'} 赢得比赛！`);
+                    }, 100);
+                    currentSet = '结束';
+                }else{
+                    //询问是否换边
+                    setTimeout(()=>{
+                        if(confirm('是否换边')){
+                            swapSides();
+                        }
+                    },100)
+                }
+
+                saveHistory();
+                scoreA = 0;
+                scoreB = 0;
+                updateDisplay();
+            }
+        }
+
+        function swapSides(){
+            //交换分数
+            [scoreA, scoreB] = [scoreB, scoreA];
+            //交换胜局
+            [setsA, setsB] = [setsB, setsA];
+            //交换样式
+            const playerA = document.querySelector('.player-red');
+            const playerB = document.querySelector('.player-blue');
+            playerA.classList.remove('player-red');
+            playerA.classList.add('player-blue');
+            playerB.classList.remove('player-blue');
+            playerB.classList.add('player-red');
+
+            updateDisplay();
+        }
+
+        function saveHistory(){
+            const playerA = document.querySelector('.player-red');
+            history.push({
+                scoreA: scoreA,
+                scoreB: scoreB,
+                setsA: setsA,
+                setsB: setsB,
+                currentSet: currentSet,
+                isPlayerARed: playerA.classList.contains('player-red')
+            });
+        }
+
+        function changeScore(player, delta) {
+            if (currentSet === '结束') return;
+            
+            saveHistory();
+            if (player === 'A') {
+                scoreA = Math.max(0, scoreA + delta);
+            } else {
+                scoreB = Math.max(0, scoreB + delta);
+            }
+            
+            updateDisplay();
+            checkSetWinner();
+        }
+
+        function undoAction() {
+            if (history.length > 0) {
+                const prev = history.pop();
+                scoreA = prev.scoreA;
+                scoreB = prev.scoreB;
+                setsA = prev.setsA;
+                setsB = prev.setsB;
+                currentSet = prev.currentSet;
+
+                const playerA = document.querySelector('.player-red')
+                const playerB = document.querySelector('player-blue')
+
+                if(prev.isPlayerARed){
+                    playerA.classList.remove('player-blue')
+                    playerA.classList.add('player-red')
+                    playerB.classList.remove('player-red')
+                    playerB.classList.add('player-blue')
+                }else{
+                    playerA.classList.remove('player-red')
+                    playerA.classList.add('player-blue')
+                    playerB.classList.remove('player-blue')
+                    playerB.classList.add('player-red')
+                }
+
+                updateDisplay();
+            }
+        }
+
+        function resetGame() {
+            currentSet = 1;
+            scoreA = 0;
+            scoreB = 0;
+            setsA = 0;
+            setsB = 0;
+            history = [];
+            updateDisplay();
+        }
+
+        // 横屏检测
+        function checkOrientation() {
+            if (window.innerHeight > window.innerWidth) {
+                alert("请将手机旋转至横屏使用");
+            }
+        }
+
+        window.addEventListener('resize', checkOrientation);
+        checkOrientation();
+    </script>
+</body>
+</html>
